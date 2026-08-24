@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DatabaseHelper.instance.database;
-  runApp(MiApp());
+  runApp(const MiApp());
 }
 
 // --- BASE DE DATOS LOCAL SQLITE ---
@@ -60,10 +60,6 @@ class DatabaseHelper {
         fecha TEXT NOT NULL
       )
     ''');
-
-    // Datos de prueba iniciales
-    await db.insert('clientes', {'nombre': 'Juan Pérez', 'telefono': '50499999999'});
-    await db.insert('productos', {'nombre': 'Café Molido 500g', 'precio': 100.0});
   }
 }
 
@@ -127,21 +123,21 @@ class Pedido {
 
 // --- APLICACIÓN PRINCIPAL ---
 class MiApp extends StatelessWidget {
-  MiApp({super.key});
+  const MiApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'App Ventas', // <-- Cambia el título interno aquí
+      title: 'App Ventas',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.green),
-      home: PantallaPrincipal(),
+      home: const PantallaPrincipal(),
     );
   }
 }
 
 class PantallaPrincipal extends StatefulWidget {
-  PantallaPrincipal({super.key});
+  const PantallaPrincipal({super.key});
 
   @override
   State<PantallaPrincipal> createState() => _PantallaPrincipalState();
@@ -154,8 +150,8 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
       length: 5,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Sistema de Pedidos'),
-          bottom: TabBar(
+          title: const Text('Sistema Pedidos'),
+          bottom: const TabBar(
             isScrollable: true,
             tabs: [
               Tab(text: 'Nuevo Pedido'),
@@ -166,7 +162,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
             ],
           ),
         ),
-        body: TabBarView(
+        body: const TabBarView(
           children: [
             VistaNuevoPedido(),
             VistaHistorial(),
@@ -182,7 +178,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
 
 // --- PESTAÑA 1: NUEVO PEDIDO ---
 class VistaNuevoPedido extends StatefulWidget {
-  VistaNuevoPedido({super.key});
+  const VistaNuevoPedido({super.key});
 
   @override
   State<VistaNuevoPedido> createState() => _VistaNuevoPedidoState();
@@ -208,20 +204,20 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
           builder: (context, setModalState) {
             final filtrados = clientes.where((c) => c.nombre.toLowerCase().contains(filtro.toLowerCase())).toList();
             return Container(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               height: MediaQuery.of(context).size.height * 0.7,
               child: Column(
                 children: [
                   TextField(
-                    decoration: InputDecoration(labelText: 'Buscar Cliente', prefixIcon: Icon(Icons.search)),
+                    decoration: const InputDecoration(labelText: 'Buscar Cliente', prefixIcon: Icon(Icons.search)),
                     onChanged: (val) => setModalState(() => filtro = val),
                   ),
                   Expanded(
                     child: ListView.builder(
                       itemCount: filtrados.length,
                       itemBuilder: (ctx, i) => ListTile(
-                        title: Text(filtrados[i].nombre),
-                        subtitle: Text(filtrados[i].telefono),
+                        title: Text(filtrados[i].nombre, style: const TextStyle(fontSize: 14)),
+                        subtitle: Text(filtrados[i].telefono, style: const TextStyle(fontSize: 12)),
                         onTap: () {
                           setState(() => clienteSeleccionado = filtrados[i]);
                           Navigator.pop(ctx);
@@ -251,54 +247,83 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
           builder: (context, setDialogState) {
             final filtrados = productos.where((p) => p.nombre.toLowerCase().contains(filtro.toLowerCase())).toList();
             return AlertDialog(
-              title: Text('Catálogo de Productos'),
+              title: const Text('Listado de Productos', style: TextStyle(fontSize: 16)),
               content: SizedBox(
-                width: double.maxFinite,
-                height: 350,
+                width: MediaQuery.of(context).size.width * 0.9,
+                height: 400,
                 child: Column(
                   children: [
                     TextField(
-                      decoration: InputDecoration(labelText: 'Buscar Producto', prefixIcon: Icon(Icons.search)),
+                      decoration: const InputDecoration(labelText: 'Buscar Producto', prefixIcon: Icon(Icons.search)),
                       onChanged: (val) => setDialogState(() => filtro = val),
                     ),
+                    const SizedBox(height: 8),
                     Expanded(
                       child: ListView.builder(
                         itemCount: filtrados.length,
                         itemBuilder: (ctx, i) {
                           final prod = filtrados[i];
                           final cant = carrito[prod] ?? 0;
-                          return ListTile(
-                            title: Text(prod.nombre),
-                            subtitle: Text('L ${prod.precio.toStringAsFixed(2)} c/u'),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
+                          return Container(
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black12))),
+                            child: Row(
                               children: [
-                                IconButton(
-                                  icon: Icon(Icons.remove_circle_outline),
-                                  onPressed: cant > 0
-                                      ? () {
-                                          setDialogState(() {
-                                            setState(() {
-                                              if (cant == 1) {
-                                                carrito.remove(prod);
-                                              } else {
-                                                carrito[prod] = cant - 1;
-                                              }
-                                            });
-                                          });
-                                        }
-                                      : null,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        prod.nombre,
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        'L ${prod.precio.toStringAsFixed(2)} c/u',
+                                        style: const TextStyle(fontSize: 11, color: Colors.black87),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                Text('$cant', style: TextStyle(fontWeight: FontWeight.bold)),
-                                IconButton(
-                                  icon: Icon(Icons.add_circle_outline),
-                                  onPressed: () {
-                                    setDialogState(() {
-                                      setState(() {
-                                        carrito[prod] = cant + 1;
-                                      });
-                                    });
-                                  },
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.all(4),
+                                      icon: const Icon(Icons.remove_circle_outline, size: 20),
+                                      onPressed: cant > 0
+                                          ? () {
+                                              setDialogState(() {
+                                                setState(() {
+                                                  if (cant == 1) {
+                                                    carrito.remove(prod);
+                                                  } else {
+                                                    carrito[prod] = cant - 1;
+                                                  }
+                                                });
+                                              });
+                                            }
+                                          : null,
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                                      child: Text('$cant', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    ),
+                                    IconButton(
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.all(4),
+                                      icon: const Icon(Icons.add_circle_outline, size: 20),
+                                      onPressed: () {
+                                        setDialogState(() {
+                                          setState(() {
+                                            carrito[prod] = cant + 1;
+                                          });
+                                        });
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -310,7 +335,7 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
                 ),
               ),
               actions: [
-                ElevatedButton(onPressed: () => Navigator.pop(ctx), child: Text('Listo')),
+                ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Listo')),
               ],
             );
           },
@@ -336,7 +361,6 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
       fecha: DateTime.now().toString().substring(0, 10),
     );
 
-    // Guarda el pedido directamente en la base de datos (Historial)
     await db.insert('pedidos', nuevoPedido.toMap());
 
     String mensaje = '¡Hola ${clienteSeleccionado!.nombre}!\n\nDetalle de tu pedido:\n$detalleText\nTotal: L ${totalPedido.toStringAsFixed(2)}';
@@ -355,54 +379,54 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           OutlinedButton.icon(
-            icon: Icon(Icons.person_search),
+            icon: const Icon(Icons.person_search),
             label: Text(clienteSeleccionado == null ? 'Seleccionar Cliente' : 'Cliente: ${clienteSeleccionado!.nombre}'),
             onPressed: _abrirBuscadorCliente,
           ),
-          SizedBox(height: 10),
+          const SizedBox(height: 10),
           ElevatedButton.icon(
-            icon: Icon(Icons.add),
-            label: Text('+ Agregar Productos al Pedido'),
+            icon: const Icon(Icons.add),
+            label: const Text('+ Agregar Productos al Pedido'),
             onPressed: _abrirCatalogoProductos,
           ),
-          Divider(),
+          const Divider(),
           Expanded(
             child: carrito.isEmpty
-                ? Center(child: Text('Ningún producto agregado aún.'))
+                ? const Center(child: Text('Ningún producto agregado aún.'))
                 : ListView(
                     children: carrito.entries.map((entry) {
                       return Card(
                         child: ListTile(
-                          title: Text(entry.key.nombre),
-                          subtitle: Text('L ${entry.key.precio.toStringAsFixed(2)} c/u | Subtotal: L ${(entry.key.precio * entry.value).toStringAsFixed(2)}'),
-                          trailing: Text('Cant: ${entry.value}', style: TextStyle(fontWeight: FontWeight.bold)),
+                          title: Text(entry.key.nombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          subtitle: Text('L ${entry.key.precio.toStringAsFixed(2)} c/u | Subtotal: L ${(entry.key.precio * entry.value).toStringAsFixed(2)}', style: const TextStyle(fontSize: 11)),
+                          trailing: Text('Cant: ${entry.value}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         ),
                       );
                     }).toList(),
                   ),
           ),
           Container(
-            padding: EdgeInsets.all(12),
+            padding: const EdgeInsets.all(12),
             color: Colors.green.shade50,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('TOTAL:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                Text('L ${totalPedido.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green.shade900)),
+                const Text('TOTAL:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text('L ${totalPedido.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green.shade900)),
               ],
             ),
           ),
-          SizedBox(height: 10),
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
               onPressed: (clienteSeleccionado != null && carrito.isNotEmpty) ? _enviarWhatsApp : null,
-              child: Text('Enviar Pedido por WhatsApp', style: TextStyle(color: Colors.white)),
+              child: const Text('Enviar Pedido por WhatsApp', style: TextStyle(color: Colors.white)),
             ),
           )
         ],
@@ -413,48 +437,213 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
 
 // --- PESTAÑA 2: HISTORIAL DE PEDIDOS ---
 class VistaHistorial extends StatefulWidget {
-  VistaHistorial({super.key});
+  const VistaHistorial({super.key});
 
   @override
   State<VistaHistorial> createState() => _VistaHistorialState();
 }
 
 class _VistaHistorialState extends State<VistaHistorial> {
+
+  void _abrirEditarPedidoModal(Pedido pedido) async {
+    final db = await DatabaseHelper.instance.database;
+    final List<Map<String, dynamic>> res = await db.query('productos');
+    List<Producto> productosBD = res.map((p) => Producto.fromMap(p)).toList();
+
+    // Reconstruir el carrito desde el detalle
+    Map<Producto, int> carritoEditado = {};
+    List<String> lineas = pedido.detalle.split('\n');
+
+    for (var linea in lineas) {
+      if (linea.startsWith('• ')) {
+        try {
+          // Extraer la cantidad y el nombre
+          int indexX = linea.indexOf('x ');
+          int indexPar = linea.lastIndexOf(' (L ');
+          if (indexX != -1 && indexPar != -1) {
+            int cant = int.parse(linea.substring(2, indexX));
+            String nombreProd = linea.substring(indexX + 2, indexPar);
+
+            Producto? p = productosBD.firstWhere(
+              (element) => element.nombre == nombreProd,
+              orElse: () => Producto(nombre: nombreProd, precio: 0.0),
+            );
+            carritoEditado[p] = cant;
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        String filtro = '';
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            double nuevoTotal = carritoEditado.entries.fold(0, (sum, entry) => sum + (entry.key.precio * entry.value));
+            final filtrados = productosBD.where((p) => p.nombre.toLowerCase().contains(filtro.toLowerCase())).toList();
+
+            return AlertDialog(
+              title: Text('Editar Pedido #${pedido.id}', style: const TextStyle(fontSize: 16)),
+              content: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.9,
+                height: 400,
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(labelText: 'Buscar producto para agregar', prefixIcon: Icon(Icons.search)),
+                      onChanged: (val) => setDialogState(() => filtro = val),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filtrados.length,
+                        itemBuilder: (ctx, i) {
+                          final prod = filtrados[i];
+                          final cant = carritoEditado[prod] ?? 0;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black12))),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(prod.nombre, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                      Text('L ${prod.precio.toStringAsFixed(2)} c/u', style: const TextStyle(fontSize: 11)),
+                                    ],
+                                  ),
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.all(4),
+                                      icon: const Icon(Icons.remove_circle_outline, size: 20),
+                                      onPressed: cant > 0
+                                          ? () {
+                                              setDialogState(() {
+                                                if (cant == 1) {
+                                                  carritoEditado.remove(prod);
+                                                } else {
+                                                  carritoEditado[prod] = cant - 1;
+                                                }
+                                              });
+                                            }
+                                          : null,
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                                      child: Text('$cant', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    ),
+                                    IconButton(
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.all(4),
+                                      icon: const Icon(Icons.add_circle_outline, size: 20),
+                                      onPressed: () {
+                                        setDialogState(() {
+                                          carritoEditado[prod] = cant + 1;
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Nuevo Total: L ${nuevoTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.green)),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+                ElevatedButton(
+                  onPressed: () async {
+                    String nuevoDetalle = '';
+                    carritoEditado.forEach((prod, cant) {
+                      nuevoDetalle += '• ${cant}x ${prod.nombre} (L ${(prod.precio * cant).toStringAsFixed(2)})\n';
+                    });
+
+                    final dbUpdate = await DatabaseHelper.instance.database;
+                    await dbUpdate.update(
+                      'pedidos',
+                      {
+                        'total': nuevoTotal,
+                        'detalle': nuevoDetalle,
+                      },
+                      where: 'id = ?',
+                      whereArgs: [pedido.id],
+                    );
+
+                    if (mounted) Navigator.pop(ctx);
+                    setState(() {});
+                  },
+                  child: const Text('Guardar Cambios'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: DatabaseHelper.instance.database.then((db) => db.query('pedidos', orderBy: 'id DESC')),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final pedidos = snapshot.data!.map((p) => Pedido.fromMap(p)).toList();
 
-        if (pedidos.isEmpty) return Center(child: Text('No hay pedidos registrados en el historial.'));
+        if (pedidos.isEmpty) return const Center(child: Text('No hay pedidos registrados en el historial.'));
 
         return ListView.builder(
           itemCount: pedidos.length,
           itemBuilder: (ctx, i) {
             final ped = pedidos[i];
             return Card(
-              margin: EdgeInsets.all(8),
+              margin: const EdgeInsets.all(8),
               child: ExpansionTile(
-                title: Text('Pedido #${ped.id} - ${ped.cliente}'),
-                subtitle: Text('Total: L ${ped.total.toStringAsFixed(2)} | Fecha: ${ped.fecha}'),
+                title: Text('Pedido #${ped.id} - ${ped.cliente}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                subtitle: Text('Total: L ${ped.total.toStringAsFixed(2)} | Fecha: ${ped.fecha}', style: const TextStyle(fontSize: 12)),
                 children: [
                   Padding(
-                    padding: EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Teléfono: ${ped.telefono}'),
-                        Text('Detalle:\n${ped.detalle}'),
-                        OutlinedButton.icon(
-                          icon: Icon(Icons.send),
-                          label: Text('Reenviar por WhatsApp'),
-                          onPressed: () async {
-                            String mensaje = '¡Hola ${ped.cliente}!\n\nRecordatorio de tu pedido:\n${ped.detalle}\nTotal: L ${ped.total.toStringAsFixed(2)}';
-                            final url = Uri.parse('https://wa.me/${ped.telefono}?text=${Uri.encodeComponent(mensaje)}');
-                            if (await canLaunchUrl(url)) await launchUrl(url);
-                          },
+                        Text('Teléfono: ${ped.telefono}', style: const TextStyle(fontSize: 13)),
+                        const SizedBox(height: 6),
+                        Text('Detalle:\n${ped.detalle}', style: const TextStyle(fontSize: 12)),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade700),
+                              icon: const Icon(Icons.edit, size: 16, color: Colors.white),
+                              label: const Text('Editar Pedido', style: TextStyle(fontSize: 12, color: Colors.white)),
+                              onPressed: () => _abrirEditarPedidoModal(ped),
+                            ),
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.send, size: 16),
+                              label: const Text('WhatsApp', style: TextStyle(fontSize: 12)),
+                              onPressed: () async {
+                                String mensaje = '¡Hola ${ped.cliente}!\n\nRecordatorio de tu pedido:\n${ped.detalle}\nTotal: L ${ped.total.toStringAsFixed(2)}';
+                                final url = Uri.parse('https://wa.me/${ped.telefono}?text=${Uri.encodeComponent(mensaje)}');
+                                if (await canLaunchUrl(url)) await launchUrl(url);
+                              },
+                            ),
+                          ],
                         )
                       ],
                     ),
@@ -505,6 +694,29 @@ class _VistaGestionClientesState extends State<VistaGestionClientes> {
     _telCtrl.clear();
     if (mounted) Navigator.pop(context);
     setState(() {});
+  }
+
+  void _confirmarEliminarCliente(Cliente cliente) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar Cliente'),
+        content: Text('¿Estás seguro de que deseas eliminar a "${cliente.nombre}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              final db = await DatabaseHelper.instance.database;
+              await db.delete('clientes', where: 'id = ?', whereArgs: [cliente.id]);
+              if (mounted) Navigator.pop(ctx);
+              setState(() {});
+            },
+            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+          )
+        ],
+      ),
+    );
   }
 
   void _abrirFormularioModal({Cliente? cliente}) {
@@ -592,23 +804,36 @@ class _VistaGestionClientesState extends State<VistaGestionClientes> {
                   itemCount: lista.length,
                   itemBuilder: (ctx, i) {
                     final item = lista[i];
-                    return ListTile(
-                      title: Text(item.nombre),
-                      subtitle: Text(item.telefono),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black12))),
+                      child: Row(
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blue),
-                            onPressed: () => _abrirFormularioModal(cliente: item),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(item.nombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                Text(item.telefono, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                              ],
+                            ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () async {
-                              final db = await DatabaseHelper.instance.database;
-                              await db.delete('clientes', where: 'id = ?', whereArgs: [item.id]);
-                              setState(() {});
-                            },
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: const EdgeInsets.all(6),
+                                icon: const Icon(Icons.edit, color: Colors.blue, size: 22),
+                                onPressed: () => _abrirFormularioModal(cliente: item),
+                              ),
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: const EdgeInsets.all(6),
+                                icon: const Icon(Icons.delete, color: Colors.red, size: 22),
+                                onPressed: () => _confirmarEliminarCliente(item),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -660,6 +885,29 @@ class _VistaGestionProductosState extends State<VistaGestionProductos> {
     _precioCtrl.clear();
     if (mounted) Navigator.pop(context);
     setState(() {});
+  }
+
+  void _confirmarEliminarProducto(Producto producto) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar Producto'),
+        content: Text('¿Estás seguro de que deseas eliminar "${producto.nombre}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              final db = await DatabaseHelper.instance.database;
+              await db.delete('productos', where: 'id = ?', whereArgs: [producto.id]);
+              if (mounted) Navigator.pop(ctx);
+              setState(() {});
+            },
+            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+          )
+        ],
+      ),
+    );
   }
 
   void _abrirFormularioModal({Producto? producto}) {
@@ -746,23 +994,44 @@ class _VistaGestionProductosState extends State<VistaGestionProductos> {
                   itemCount: lista.length,
                   itemBuilder: (ctx, i) {
                     final item = lista[i];
-                    return ListTile(
-                      title: Text(item.nombre),
-                      subtitle: Text('Precio: L ${item.precio.toStringAsFixed(2)}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black12))),
+                      child: Row(
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blue),
-                            onPressed: () => _abrirFormularioModal(producto: item),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.nombre,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  'L ${item.precio.toStringAsFixed(2)}',
+                                  style: const TextStyle(fontSize: 11, color: Colors.black87),
+                                ),
+                              ],
+                            ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () async {
-                              final db = await DatabaseHelper.instance.database;
-                              await db.delete('productos', where: 'id = ?', whereArgs: [item.id]);
-                              setState(() {});
-                            },
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: const EdgeInsets.all(6),
+                                icon: const Icon(Icons.edit, color: Colors.blue, size: 22),
+                                onPressed: () => _abrirFormularioModal(producto: item),
+                              ),
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: const EdgeInsets.all(6),
+                                icon: const Icon(Icons.delete, color: Colors.red, size: 22),
+                                onPressed: () => _confirmarEliminarProducto(item),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -780,14 +1049,14 @@ class _VistaGestionProductosState extends State<VistaGestionProductos> {
 
 // --- PESTAÑA 5: RESUMEN DE VENTAS ---
 class VistaResumenes extends StatelessWidget {
-  VistaResumenes({super.key});
+  const VistaResumenes({super.key});
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: DatabaseHelper.instance.database.then((db) => db.query('pedidos')),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final pedidos = snapshot.data!.map((p) => Pedido.fromMap(p)).toList();
 
         double totalVentas = pedidos.fold(0, (sum, p) => sum + p.total);
@@ -798,27 +1067,27 @@ class VistaResumenes extends StatelessWidget {
         }
 
         return Padding(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Card(
                 color: Colors.green.shade100,
                 child: ListTile(
-                  title: Text('Ventas Totales Registradas', style: TextStyle(fontWeight: FontWeight.bold)),
+                  title: const Text('Ventas Totales', style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text('L ${totalVentas.toStringAsFixed(2)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green.shade900)),
                 ),
               ),
-              SizedBox(height: 15),
-              Text('Resumen de Ventas por Cliente:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Divider(),
+              const SizedBox(height: 15),
+              const Text('Resumen de Ventas por Cliente:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Divider(),
               Expanded(
                 child: ListView(
                   children: ventasPorCliente.entries.map((e) {
                     return ListTile(
-                      leading: Icon(Icons.person),
+                      leading: const Icon(Icons.person),
                       title: Text(e.key),
-                      trailing: Text('L ${e.value.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold)),
+                      trailing: Text('L ${e.value.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                     );
                   }).toList(),
                 ),
