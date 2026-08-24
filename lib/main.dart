@@ -14,7 +14,7 @@ class MiApp extends StatelessWidget {
         primarySwatch: Colors.green,
         scaffoldBackgroundColor: const Color(0xFFF5F5F5),
       ),
-      home: const PantallaPrincipal(),
+      home: PantallaPrincipal(),
     );
   }
 }
