@@ -1,12 +1,11 @@
-name: app_ventas
-description: "Nueva App de Ventas"
-publish_to: 'none'
-version: 1.0.0+1
+name: resumen_pedido
+description: Un nuevo proyecto de Flutter.
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '^3.13.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  url_launcher: ^6.2.5
+  url_launcher: ^6.3.0
+  flutter_contacts: ^1.1.9
