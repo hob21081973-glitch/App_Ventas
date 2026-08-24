@@ -61,10 +61,9 @@ class DatabaseHelper {
       )
     ''');
 
-    // Datos por defecto
-    await db.insert('clientes', {'nombre': 'Juan Pérez', 'telefono': '50432152136'});
+    // Datos de prueba iniciales
+    await db.insert('clientes', {'nombre': 'Juan Pérez', 'telefono': '50499999999'});
     await db.insert('productos', {'nombre': 'Café Molido 500g', 'precio': 100.0});
-    await db.insert('productos', {'nombre': 'Filtros de Papel', 'precio': 50.0});
   }
 }
 
@@ -180,7 +179,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   }
 }
 
-// --- VISTA 1 & 2: NUEVO PEDIDO Y SELECCIÓN DE PRODUCTOS ---
+// --- PESTAÑA 1: NUEVO PEDIDO ---
 class VistaNuevoPedido extends StatefulWidget {
   VistaNuevoPedido({super.key});
 
@@ -336,6 +335,7 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
       fecha: DateTime.now().toString().substring(0, 10),
     );
 
+    // Guarda el pedido directamente en la base de datos (Historial)
     await db.insert('pedidos', nuevoPedido.toMap());
 
     String mensaje = '¡Hola ${clienteSeleccionado!.nombre}!\n\nDetalle de tu pedido:\n$detalleText\nTotal: L ${totalPedido.toStringAsFixed(2)}';
@@ -410,7 +410,7 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
   }
 }
 
-// --- VISTA 3 Y 7: HISTORIAL DE PEDIDOS Y REENVÍO ---
+// --- PESTAÑA 2: HISTORIAL DE PEDIDOS ---
 class VistaHistorial extends StatefulWidget {
   VistaHistorial({super.key});
 
@@ -427,7 +427,7 @@ class _VistaHistorialState extends State<VistaHistorial> {
         if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
         final pedidos = snapshot.data!.map((p) => Pedido.fromMap(p)).toList();
 
-        if (pedidos.isEmpty) return Center(child: Text('No hay pedidos registrados.'));
+        if (pedidos.isEmpty) return Center(child: Text('No hay pedidos registrados en el historial.'));
 
         return ListView.builder(
           itemCount: pedidos.length,
@@ -468,9 +468,9 @@ class _VistaHistorialState extends State<VistaHistorial> {
   }
 }
 
-// --- VISTA 5: GESTIÓN DE CLIENTES ---
+// --- PESTAÑA 3: GESTIÓN DE CLIENTES ---
 class VistaGestionClientes extends StatefulWidget {
-  VistaGestionClientes({super.key});
+  const VistaGestionClientes({super.key});
 
   @override
   State<VistaGestionClientes> createState() => _VistaGestionClientesState();
@@ -479,63 +479,153 @@ class VistaGestionClientes extends StatefulWidget {
 class _VistaGestionClientesState extends State<VistaGestionClientes> {
   final _nombreCtrl = TextEditingController();
   final _telCtrl = TextEditingController();
+  String _busqueda = '';
 
-  void _agregarCliente() async {
-    if (_nombreCtrl.text.isEmpty || _telCtrl.text.isEmpty) return;
+  void _guardarOActualizarCliente({Cliente? clienteExistente}) async {
+    final nombre = _nombreCtrl.text.trim();
+    final telefono = _telCtrl.text.trim();
+
+    if (nombre.isEmpty || telefono.isEmpty) return;
+
     final db = await DatabaseHelper.instance.database;
-    await db.insert('clientes', {'nombre': _nombreCtrl.text, 'telefono': _telCtrl.text});
+
+    if (clienteExistente == null) {
+      await db.insert('clientes', {'nombre': nombre, 'telefono': telefono});
+    } else {
+      await db.update(
+        'clientes',
+        {'nombre': nombre, 'telefono': telefono},
+        where: 'id = ?',
+        whereArgs: [clienteExistente.id],
+      );
+    }
+
     _nombreCtrl.clear();
     _telCtrl.clear();
+    if (mounted) Navigator.pop(context);
     setState(() {});
+  }
+
+  void _abrirFormularioModal({Cliente? cliente}) {
+    if (cliente != null) {
+      _nombreCtrl.text = cliente.nombre;
+      _telCtrl.text = cliente.telefono;
+    } else {
+      _nombreCtrl.clear();
+      _telCtrl.clear();
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          top: 16,
+          left: 16,
+          right: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              cliente == null ? 'Agregar Nuevo Cliente' : 'Editar Cliente',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            TextField(
+              controller: _nombreCtrl,
+              decoration: const InputDecoration(labelText: 'Nombre'),
+            ),
+            TextField(
+              controller: _telCtrl,
+              decoration: const InputDecoration(labelText: 'Teléfono'),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.save),
+              label: Text(cliente == null ? 'Guardar Cliente' : 'Actualizar Cliente'),
+              onPressed: () => _guardarOActualizarCliente(clienteExistente: cliente),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.all(8),
-          child: Row(
-            children: [
-              Expanded(child: TextField(controller: _nombreCtrl, decoration: InputDecoration(labelText: 'Nombre'))),
-              SizedBox(width: 8),
-              Expanded(child: TextField(controller: _telCtrl, decoration: InputDecoration(labelText: 'Teléfono'))),
-              IconButton(icon: Icon(Icons.add_circle, color: Colors.green), onPressed: _agregarCliente)
-            ],
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _abrirFormularioModal(),
+        child: const Icon(Icons.add),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              decoration: const InputDecoration(
+                labelText: 'Buscar cliente...',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (val) => setState(() => _busqueda = val),
+            ),
           ),
-        ),
-        Expanded(
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: DatabaseHelper.instance.database.then((db) => db.query('clientes')),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
-              final clientes = snapshot.data!.map((c) => Cliente.fromMap(c)).toList();
-              return ListView.builder(
-                itemCount: clientes.length,
-                itemBuilder: (ctx, i) => ListTile(
-                  title: Text(clientes[i].nombre),
-                  subtitle: Text(clientes[i].telefono),
-                  trailing: IconButton(
-                    icon: Icon(Icons.delete, color: Colors.red),
-                    onPressed: () async {
-                      final db = await DatabaseHelper.instance.database;
-                      await db.delete('clientes', where: 'id = ?', whereArgs: [clientes[i].id]);
-                      setState(() {});
-                    },
-                  ),
-                ),
-              );
-            },
+          Expanded(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: DatabaseHelper.instance.database.then((db) => db.query('clientes')),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                
+                final lista = snapshot.data!
+                    .map((c) => Cliente.fromMap(c))
+                    .where((c) => c.nombre.toLowerCase().contains(_busqueda.toLowerCase()) ||
+                                  c.telefono.contains(_busqueda))
+                    .toList();
+
+                if (lista.isEmpty) return const Center(child: Text('No hay clientes registrados.'));
+
+                return ListView.builder(
+                  itemCount: lista.length,
+                  itemBuilder: (ctx, i) {
+                    final item = lista[i];
+                    return ListTile(
+                      title: Text(item.nombre),
+                      subtitle: Text(item.telefono),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            onPressed: () => _abrirFormularioModal(cliente: item),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () async {
+                              final db = await DatabaseHelper.instance.database;
+                              await db.delete('clientes', where: 'id = ?', whereArgs: [item.id]);
+                              setState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
-        )
-      ],
+        ],
+      ),
     );
   }
 }
 
-// --- VISTA 6: GESTIÓN DE PRODUCTOS ---
+// --- PESTAÑA 4: GESTIÓN DE PRODUCTOS ---
 class VistaGestionProductos extends StatefulWidget {
-  VistaGestionProductos({super.key});
+  const VistaGestionProductos({super.key});
 
   @override
   State<VistaGestionProductos> createState() => _VistaGestionProductosState();
@@ -544,64 +634,150 @@ class VistaGestionProductos extends StatefulWidget {
 class _VistaGestionProductosState extends State<VistaGestionProductos> {
   final _nombreCtrl = TextEditingController();
   final _precioCtrl = TextEditingController();
+  String _busqueda = '';
 
-  void _agregarProducto() async {
-    if (_nombreCtrl.text.isEmpty || _precioCtrl.text.isEmpty) return;
+  void _guardarOActualizarProducto({Producto? productoExistente}) async {
+    final nombre = _nombreCtrl.text.trim();
+    final precio = double.tryParse(_precioCtrl.text) ?? 0.0;
+
+    if (nombre.isEmpty || precio <= 0) return;
+
     final db = await DatabaseHelper.instance.database;
-    await db.insert('productos', {
-      'nombre': _nombreCtrl.text,
-      'precio': double.tryParse(_precioCtrl.text) ?? 0.0,
-    });
+
+    if (productoExistente == null) {
+      await db.insert('productos', {'nombre': nombre, 'precio': precio});
+    } else {
+      await db.update(
+        'productos',
+        {'nombre': nombre, 'precio': precio},
+        where: 'id = ?',
+        whereArgs: [productoExistente.id],
+      );
+    }
+
     _nombreCtrl.clear();
     _precioCtrl.clear();
+    if (mounted) Navigator.pop(context);
     setState(() {});
+  }
+
+  void _abrirFormularioModal({Producto? producto}) {
+    if (producto != null) {
+      _nombreCtrl.text = producto.nombre;
+      _precioCtrl.text = producto.precio.toString();
+    } else {
+      _nombreCtrl.clear();
+      _precioCtrl.clear();
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          top: 16,
+          left: 16,
+          right: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              producto == null ? 'Agregar Nuevo Producto' : 'Editar Producto',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            TextField(
+              controller: _nombreCtrl,
+              decoration: const InputDecoration(labelText: 'Producto'),
+            ),
+            TextField(
+              controller: _precioCtrl,
+              decoration: const InputDecoration(labelText: 'Precio (L)'),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.save),
+              label: Text(producto == null ? 'Guardar Producto' : 'Actualizar Producto'),
+              onPressed: () => _guardarOActualizarProducto(productoExistente: producto),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.all(8),
-          child: Row(
-            children: [
-              Expanded(child: TextField(controller: _nombreCtrl, decoration: InputDecoration(labelText: 'Producto'))),
-              SizedBox(width: 8),
-              Expanded(child: TextField(controller: _precioCtrl, decoration: InputDecoration(labelText: 'Precio (L)'), keyboardType: TextInputType.number)),
-              IconButton(icon: Icon(Icons.add_circle, color: Colors.green), onPressed: _agregarProducto)
-            ],
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _abrirFormularioModal(),
+        child: const Icon(Icons.add),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              decoration: const InputDecoration(
+                labelText: 'Buscar producto...',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (val) => setState(() => _busqueda = val),
+            ),
           ),
-        ),
-        Expanded(
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: DatabaseHelper.instance.database.then((db) => db.query('productos')),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
-              final productos = snapshot.data!.map((p) => Producto.fromMap(p)).toList();
-              return ListView.builder(
-                itemCount: productos.length,
-                itemBuilder: (ctx, i) => ListTile(
-                  title: Text(productos[i].nombre),
-                  subtitle: Text('Precio: L ${productos[i].precio.toStringAsFixed(2)}'),
-                  trailing: IconButton(
-                    icon: Icon(Icons.delete, color: Colors.red),
-                    onPressed: () async {
-                      final db = await DatabaseHelper.instance.database;
-                      await db.delete('productos', where: 'id = ?', whereArgs: [productos[i].id]);
-                      setState(() {});
-                    },
-                  ),
-                ),
-              );
-            },
+          Expanded(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: DatabaseHelper.instance.database.then((db) => db.query('productos')),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                
+                final lista = snapshot.data!
+                    .map((p) => Producto.fromMap(p))
+                    .where((p) => p.nombre.toLowerCase().contains(_busqueda.toLowerCase()))
+                    .toList();
+
+                if (lista.isEmpty) return const Center(child: Text('No hay productos registrados.'));
+
+                return ListView.builder(
+                  itemCount: lista.length,
+                  itemBuilder: (ctx, i) {
+                    final item = lista[i];
+                    return ListTile(
+                      title: Text(item.nombre),
+                      subtitle: Text('Precio: L ${item.precio.toStringAsFixed(2)}'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            onPressed: () => _abrirFormularioModal(producto: item),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () async {
+                              final db = await DatabaseHelper.instance.database;
+                              await db.delete('productos', where: 'id = ?', whereArgs: [item.id]);
+                              setState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
-        )
-      ],
+        ],
+      ),
     );
   }
 }
 
-// --- VISTA ADICIONAL: RESUMEN Y REPORTES DE VENTAS ---
+// --- PESTAÑA 5: RESUMEN DE VENTAS ---
 class VistaResumenes extends StatelessWidget {
   VistaResumenes({super.key});
 
