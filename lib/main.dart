@@ -311,7 +311,7 @@ class _PantallaNuevoPedidoState extends State<PantallaNuevoPedido> {
           color: Colors.white,
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            crossAxisAlignment: CrossAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Cliente:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 5),
@@ -455,7 +455,7 @@ class _PantallaHistorialPedidosState extends State<PantallaHistorialPedidos> {
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    crossAlignment: CrossAlignment.start,
+                    CrossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('Cambiar Cliente:', style: TextStyle(fontWeight: FontWeight.bold)),
                       DropdownButton<Cliente>(
@@ -580,7 +580,7 @@ class _PantallaHistorialPedidosState extends State<PantallaHistorialPedidos> {
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
-                  crossAlignment: CrossAlignment.start,
+                  CrossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("Teléfono: ${ped.cliente.telefono}"),
                     const SizedBox(height: 6),
