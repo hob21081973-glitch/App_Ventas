@@ -150,7 +150,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
       length: 5,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Sistema Pedidos'),
+          title: const Text('Sistema de Pedidos'),
           bottom: const TabBar(
             isScrollable: true,
             tabs: [
@@ -184,9 +184,12 @@ class VistaNuevoPedido extends StatefulWidget {
   State<VistaNuevoPedido> createState() => _VistaNuevoPedidoState();
 }
 
-class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
+class _VistaNuevoPedidoState extends State<VistaNuevoPedido> with AutomaticKeepAliveClientMixin {
   Cliente? clienteSeleccionado;
   Map<Producto, int> carrito = {};
+
+  @override
+  bool get wantKeepAlive => true;
 
   double get totalPedido => carrito.entries.fold(0, (sum, entry) => sum + (entry.key.precio * entry.value));
 
@@ -194,6 +197,8 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
     final db = await DatabaseHelper.instance.database;
     final List<Map<String, dynamic>> res = await db.query('clientes');
     List<Cliente> clientes = res.map((c) => Cliente.fromMap(c)).toList();
+
+    if (!mounted) return;
 
     showModalBottomSheet(
       context: context,
@@ -239,6 +244,8 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
     final List<Map<String, dynamic>> res = await db.query('productos');
     List<Producto> productos = res.map((p) => Producto.fromMap(p)).toList();
 
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (ctx) {
@@ -263,70 +270,18 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
                         itemCount: filtrados.length,
                         itemBuilder: (ctx, i) {
                           final prod = filtrados[i];
-                          final cant = carrito[prod] ?? 0;
-                          return Container(
-                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black12))),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        prod.nombre,
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        'L ${prod.precio.toStringAsFixed(2)} c/u',
-                                        style: const TextStyle(fontSize: 11, color: Colors.black87),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.all(4),
-                                      icon: const Icon(Icons.remove_circle_outline, size: 20),
-                                      onPressed: cant > 0
-                                          ? () {
-                                              setDialogState(() {
-                                                setState(() {
-                                                  if (cant == 1) {
-                                                    carrito.remove(prod);
-                                                  } else {
-                                                    carrito[prod] = cant - 1;
-                                                  }
-                                                });
-                                              });
-                                            }
-                                          : null,
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                                      child: Text('$cant', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    ),
-                                    IconButton(
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.all(4),
-                                      icon: const Icon(Icons.add_circle_outline, size: 20),
-                                      onPressed: () {
-                                        setDialogState(() {
-                                          setState(() {
-                                            carrito[prod] = cant + 1;
-                                          });
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                            title: Text(prod.nombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            subtitle: Text('L ${prod.precio.toStringAsFixed(2)} c/u', style: const TextStyle(fontSize: 11)),
+                            trailing: const Icon(Icons.add_circle, color: Colors.green),
+                            onTap: () {
+                              setState(() {
+                                int actual = carrito[prod] ?? 0;
+                                carrito[prod] = actual + 1;
+                              });
+                              Navigator.pop(ctx);
+                            },
                           );
                         },
                       ),
@@ -344,7 +299,7 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
     );
   }
 
-  void _enviarWhatsApp() async {
+  void _guardarPedido() async {
     if (clienteSeleccionado == null || carrito.isEmpty) return;
 
     String detalleText = '';
@@ -363,12 +318,10 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
 
     await db.insert('pedidos', nuevoPedido.toMap());
 
-    String mensaje = '¡Hola ${clienteSeleccionado!.nombre}!\n\nDetalle de tu pedido:\n$detalleText\nTotal: L ${totalPedido.toStringAsFixed(2)}';
-    final url = Uri.parse('https://wa.me/${clienteSeleccionado!.telefono}?text=${Uri.encodeComponent(mensaje)}');
-    
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('¡Pedido guardado correctamente en el Historial!')),
+    );
 
     setState(() {
       carrito.clear();
@@ -378,6 +331,7 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -399,11 +353,59 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
                 ? const Center(child: Text('Ningún producto agregado aún.'))
                 : ListView(
                     children: carrito.entries.map((entry) {
+                      final prod = entry.key;
+                      final cant = entry.value;
                       return Card(
-                        child: ListTile(
-                          title: Text(entry.key.nombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          subtitle: Text('L ${entry.key.precio.toStringAsFixed(2)} c/u | Subtotal: L ${(entry.key.precio * entry.value).toStringAsFixed(2)}', style: const TextStyle(fontSize: 11)),
-                          trailing: Text('Cant: ${entry.value}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(prod.nombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 2),
+                                    Text('L ${prod.precio.toStringAsFixed(2)} c/u | Subtotal: L ${(prod.precio * cant).toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, color: Colors.black87)),
+                                  ],
+                                ),
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.all(4),
+                                    icon: const Icon(Icons.remove_circle_outline, size: 22, color: Colors.red),
+                                    onPressed: () {
+                                      setState(() {
+                                        if (cant == 1) {
+                                          carrito.remove(prod);
+                                        } else {
+                                          carrito[prod] = cant - 1;
+                                        }
+                                      });
+                                    },
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                                    child: Text('$cant', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  ),
+                                  IconButton(
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.all(4),
+                                    icon: const Icon(Icons.add_circle_outline, size: 22, color: Colors.green),
+                                    onPressed: () {
+                                      setState(() {
+                                        carrito[prod] = cant + 1;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              )
+                            ],
+                          ),
                         ),
                       );
                     }).toList(),
@@ -425,8 +427,8 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              onPressed: (clienteSeleccionado != null && carrito.isNotEmpty) ? _enviarWhatsApp : null,
-              child: const Text('Enviar Pedido por WhatsApp', style: TextStyle(color: Colors.white)),
+              onPressed: (clienteSeleccionado != null && carrito.isNotEmpty) ? _guardarPedido : null,
+              child: const Text('Guardar Pedido', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           )
         ],
@@ -450,14 +452,12 @@ class _VistaHistorialState extends State<VistaHistorial> {
     final List<Map<String, dynamic>> res = await db.query('productos');
     List<Producto> productosBD = res.map((p) => Producto.fromMap(p)).toList();
 
-    // Reconstruir el carrito desde el detalle
     Map<Producto, int> carritoEditado = {};
     List<String> lineas = pedido.detalle.split('\n');
 
     for (var linea in lineas) {
       if (linea.startsWith('• ')) {
         try {
-          // Extraer la cantidad y el nombre
           int indexX = linea.indexOf('x ');
           int indexPar = linea.lastIndexOf(' (L ');
           if (indexX != -1 && indexPar != -1) {
@@ -486,7 +486,7 @@ class _VistaHistorialState extends State<VistaHistorial> {
             final filtrados = productosBD.where((p) => p.nombre.toLowerCase().contains(filtro.toLowerCase())).toList();
 
             return AlertDialog(
-              title: Text('Editar Pedido #${pedido.id}', style: const TextStyle(fontSize: 16)),
+              title: Text('Modificar Pedido #${pedido.id}', style: const TextStyle(fontSize: 16)),
               content: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.9,
                 height: 400,
@@ -1074,7 +1074,7 @@ class VistaResumenes extends StatelessWidget {
               Card(
                 color: Colors.green.shade100,
                 child: ListTile(
-                  title: const Text('Ventas Totales', style: TextStyle(fontWeight: FontWeight.bold)),
+                  title: const Text('Ventas Totales Registradas', style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text('L ${totalVentas.toStringAsFixed(2)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green.shade900)),
                 ),
               ),
