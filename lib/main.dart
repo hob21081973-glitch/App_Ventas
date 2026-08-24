@@ -1,84 +1,147 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart' as p;
 
-void main() => runApp(const MiApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await DatabaseHelper.instance.database;
+  runApp(MiApp());
+}
 
+// --- BASE DE DATOS LOCAL SQLITE ---
+class DatabaseHelper {
+  static final DatabaseHelper instance = DatabaseHelper._init();
+  static Database? _database;
+
+  DatabaseHelper._init();
+
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDB('Base_De_Datos_App_Ventas.db');
+    return _database!;
+  }
+
+  Future<Database> _initDB(String filePath) async {
+    final dbPath = await getDatabasesPath();
+    final path = p.join(dbPath, filePath);
+
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: _createDB,
+    );
+  }
+
+  Future _createDB(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE clientes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT NOT NULL,
+        telefono TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE productos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT NOT NULL,
+        precio REAL NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE pedidos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cliente TEXT NOT NULL,
+        telefono TEXT NOT NULL,
+        total REAL NOT NULL,
+        detalle TEXT NOT NULL,
+        fecha TEXT NOT NULL
+      )
+    ''');
+
+    // Datos por defecto
+    await db.insert('clientes', {'nombre': 'Juan Pérez', 'telefono': '50432152136'});
+    await db.insert('productos', {'nombre': 'Café Molido 500g', 'precio': 100.0});
+    await db.insert('productos', {'nombre': 'Filtros de Papel', 'precio': 50.0});
+  }
+}
+
+// --- MODELOS ---
+class Cliente {
+  final int? id;
+  final String nombre;
+  final String telefono;
+  Cliente({this.id, required this.nombre, required this.telefono});
+
+  Map<String, dynamic> toMap() => {'id': id, 'nombre': nombre, 'telefono': telefono};
+  factory Cliente.fromMap(Map<String, dynamic> map) => Cliente(
+    id: map['id'],
+    nombre: map['nombre'],
+    telefono: map['telefono'],
+  );
+}
+
+class Producto {
+  final int? id;
+  final String nombre;
+  final double precio;
+  Producto({this.id, required this.nombre, required this.precio});
+
+  Map<String, dynamic> toMap() => {'id': id, 'nombre': nombre, 'precio': precio};
+  factory Producto.fromMap(Map<String, dynamic> map) => Producto(
+    id: map['id'],
+    nombre: map['nombre'],
+    precio: map['precio'],
+  );
+}
+
+class Pedido {
+  final int? id;
+  final String cliente;
+  final String telefono;
+  final double total;
+  final String detalle;
+  final String fecha;
+
+  Pedido({this.id, required this.cliente, required this.telefono, required this.total, required this.detalle, required this.fecha});
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'cliente': cliente,
+    'telefono': telefono,
+    'total': total,
+    'detalle': detalle,
+    'fecha': fecha,
+  };
+
+  factory Pedido.fromMap(Map<String, dynamic> map) => Pedido(
+    id: map['id'],
+    cliente: map['cliente'],
+    telefono: map['telefono'],
+    total: map['total'],
+    detalle: map['detalle'],
+    fecha: map['fecha'],
+  );
+}
+
+// --- APLICACIÓN PRINCIPAL ---
 class MiApp extends StatelessWidget {
-  const MiApp({super.key});
+  MiApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-        scaffoldBackgroundColor: const Color(0xFFF5F5F5),
-      ),
+      theme: ThemeData(primarySwatch: Colors.green),
       home: PantallaPrincipal(),
     );
   }
 }
 
-// --- MODELOS DE DATOS ---
-class Cliente {
-  String id;
-  String nombre;
-  String telefono;
-
-  Cliente({required this.id, required this.nombre, required this.telefono});
-}
-
-class Producto {
-  String id;
-  String nombre;
-  double precio;
-
-  Producto({required this.id, required this.nombre, required this.precio});
-}
-
-class ItemPedido {
-  Producto producto;
-  int cantidad;
-
-  ItemPedido({required this.producto, required this.cantidad});
-
-  double get subtotal => producto.precio * cantidad;
-}
-
-class Pedido {
-  String numero;
-  Cliente cliente;
-  List<ItemPedido> items;
-  DateTime fecha;
-
-  Pedido({
-    required this.numero,
-    required this.cliente,
-    required this.items,
-    required this.fecha,
-  });
-
-  double get total => items.fold(0.0, (sum, item) => sum + item.subtotal);
-}
-
-// --- ALMACENAMIENTO GLOBAL ---
-class DataStore {
-  static List<Cliente> clientes = [
-    Cliente(id: 'c1', nombre: "Juan Pérez", telefono: "50432152136"),
-  ];
-
-  static List<Producto> productos = [
-    Producto(id: 'p1', nombre: "Café Molido 500g", precio: 100.0),
-    Producto(id: 'p2', nombre: "Filtros de Papel", precio: 50.0),
-  ];
-
-  static List<Pedido> historialPedidos = [];
-  static int numeroPedido = 1;
-}
-
-// --- PANTALLA PRINCIPAL ---
 class PantallaPrincipal extends StatefulWidget {
-  const PantallaPrincipal({super.key});
+  PantallaPrincipal({super.key});
 
   @override
   State<PantallaPrincipal> createState() => _PantallaPrincipalState();
@@ -88,31 +151,28 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Sistema de Pedidos'),
-          backgroundColor: Colors.green[700],
-          foregroundColor: Colors.white,
-          bottom: const TabBar(
+          title: Text('Sistema de Pedidos'),
+          bottom: TabBar(
             isScrollable: true,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
             tabs: [
-              Tab(icon: Icon(Icons.add_shopping_cart), text: "Nuevo Pedido"),
-              Tab(icon: Icon(Icons.receipt_long), text: "Historial"),
-              Tab(icon: Icon(Icons.people), text: "Clientes"),
-              Tab(icon: Icon(Icons.inventory_2), text: "Productos"),
+              Tab(text: 'Nuevo Pedido'),
+              Tab(text: 'Historial'),
+              Tab(text: 'Clientes'),
+              Tab(text: 'Productos'),
+              Tab(text: 'Resumen'),
             ],
           ),
         ),
-        body: const TabBarView(
+        body: TabBarView(
           children: [
-            PantallaNuevoPedido(),
-            PantallaHistorialPedidos(),
-            PantallaClientes(),
-            PantallaProductos(),
+            VistaNuevoPedido(),
+            VistaHistorial(),
+            VistaGestionClientes(),
+            VistaGestionProductos(),
+            VistaResumenes(),
           ],
         ),
       ),
@@ -120,77 +180,124 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   }
 }
 
-// ==========================================
-// PESTAÑA 1: NUEVO PEDIDO
-// ==========================================
-class PantallaNuevoPedido extends StatefulWidget {
-  const PantallaNuevoPedido({super.key});
+// --- VISTA 1 & 2: NUEVO PEDIDO Y SELECCIÓN DE PRODUCTOS ---
+class VistaNuevoPedido extends StatefulWidget {
+  VistaNuevoPedido({super.key});
 
   @override
-  State<PantallaNuevoPedido> createState() => _PantallaNuevoPedidoState();
+  State<VistaNuevoPedido> createState() => _VistaNuevoPedidoState();
 }
 
-class _PantallaNuevoPedidoState extends State<PantallaNuevoPedido> {
+class _VistaNuevoPedidoState extends State<VistaNuevoPedido> {
   Cliente? clienteSeleccionado;
-  Map<String, int> cantidades = {};
+  Map<Producto, int> carrito = {};
 
-  @override
-  void initState() {
-    super.initState();
-    if (DataStore.clientes.isNotEmpty) {
-      clienteSeleccionado = DataStore.clientes.first;
-    }
-  }
+  double get totalPedido => carrito.entries.fold(0, (sum, entry) => sum + (entry.key.precio * entry.value));
 
-  double get totalActual {
-    double total = 0.0;
-    for (var prod in DataStore.productos) {
-      int cant = cantidades[prod.id] ?? 0;
-      total += (cant * prod.precio);
-    }
-    return total;
-  }
+  void _abrirBuscadorCliente() async {
+    final db = await DatabaseHelper.instance.database;
+    final List<Map<String, dynamic>> res = await db.query('clientes');
+    List<Cliente> clientes = res.map((c) => Cliente.fromMap(c)).toList();
 
-  void _abrirCatalogoProductos() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) {
+      isScrollControlled: true,
+      builder: (ctx) {
+        String filtro = '';
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final filtrados = clientes.where((c) => c.nombre.toLowerCase().contains(filtro.toLowerCase())).toList();
+            return Container(
+              padding: EdgeInsets.all(16),
+              height: MediaQuery.of(context).size.height * 0.7,
+              child: Column(
+                children: [
+                  TextField(
+                    decoration: InputDecoration(labelText: 'Buscar Cliente', prefixIcon: Icon(Icons.search)),
+                    onChanged: (val) => setModalState(() => filtro = val),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filtrados.length,
+                      itemBuilder: (ctx, i) => ListTile(
+                        title: Text(filtrados[i].nombre),
+                        subtitle: Text(filtrados[i].telefono),
+                        onTap: () {
+                          setState(() => clienteSeleccionado = filtrados[i]);
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                    ),
+                  )
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _abrirCatalogoProductos() async {
+    final db = await DatabaseHelper.instance.database;
+    final List<Map<String, dynamic>> res = await db.query('productos');
+    List<Producto> productos = res.map((p) => Producto.fromMap(p)).toList();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        String filtro = '';
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final filtrados = productos.where((p) => p.nombre.toLowerCase().contains(filtro.toLowerCase())).toList();
             return AlertDialog(
-              title: const Text("Catálogo de Productos"),
+              title: Text('Catálogo de Productos'),
               content: SizedBox(
                 width: double.maxFinite,
-                child: DataStore.productos.isEmpty
-                    ? const Text("No hay productos cargados.")
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: DataStore.productos.length,
-                        itemBuilder: (context, i) {
-                          final prod = DataStore.productos[i];
-                          int cant = cantidades[prod.id] ?? 0;
-
+                height: 350,
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(labelText: 'Buscar Producto', prefixIcon: Icon(Icons.search)),
+                      onChanged: (val) => setDialogState(() => filtro = val),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filtrados.length,
+                        itemBuilder: (ctx, i) {
+                          final prod = filtrados[i];
+                          final cant = carrito[prod] ?? 0;
                           return ListTile(
-                            title: Text(prod.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text("\$${prod.precio.toStringAsFixed(2)} c/u"),
+                            title: Text(prod.nombre),
+                            subtitle: Text('L ${prod.precio.toStringAsFixed(2)} c/u'),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                                  onPressed: () {
-                                    if (cant > 0) {
-                                      setModalState(() => cantidades[prod.id] = cant - 1);
-                                      setState(() {});
-                                    }
-                                  },
+                                  icon: Icon(Icons.remove_circle_outline),
+                                  onPressed: cant > 0
+                                      ? () {
+                                          setDialogState(() {
+                                            setState(() {
+                                              if (cant == 1) {
+                                                carrito.remove(prod);
+                                              } else {
+                                                carrito[prod] = cant - 1;
+                                              }
+                                            });
+                                          });
+                                        }
+                                      : null,
                                 ),
-                                Text("$cant", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                Text('$cant', style: TextStyle(fontWeight: FontWeight.bold)),
                                 IconButton(
-                                  icon: const Icon(Icons.add_circle_outline, color: Colors.green),
+                                  icon: Icon(Icons.add_circle_outline),
                                   onPressed: () {
-                                    setModalState(() => cantidades[prod.id] = cant + 1);
-                                    setState(() {});
+                                    setDialogState(() {
+                                      setState(() {
+                                        carrito[prod] = cant + 1;
+                                      });
+                                    });
                                   },
                                 ),
                               ],
@@ -198,13 +305,12 @@ class _PantallaNuevoPedidoState extends State<PantallaNuevoPedido> {
                           );
                         },
                       ),
+                    ),
+                  ],
+                ),
               ),
               actions: [
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green[700]),
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Listo", style: TextStyle(color: Colors.white)),
-                ),
+                ElevatedButton(onPressed: () => Navigator.pop(ctx), child: Text('Listo')),
               ],
             );
           },
@@ -214,758 +320,336 @@ class _PantallaNuevoPedidoState extends State<PantallaNuevoPedido> {
   }
 
   void _enviarWhatsApp() async {
-    if (clienteSeleccionado == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor selecciona un cliente')),
-      );
-      return;
-    }
+    if (clienteSeleccionado == null || carrito.isEmpty) return;
 
-    List<ItemPedido> itemsPedido = [];
-    String detalleMsg = "";
+    String detalleText = '';
+    carrito.forEach((prod, cant) {
+      detalleText += '• ${cant}x ${prod.nombre} (L ${(prod.precio * cant).toStringAsFixed(2)})\n';
+    });
 
-    for (var prod in DataStore.productos) {
-      int cant = cantidades[prod.id] ?? 0;
-      if (cant > 0) {
-        itemsPedido.add(ItemPedido(producto: prod, cantidad: cant));
-        double subtotal = prod.precio * cant;
-        detalleMsg += "• ${cant}x ${prod.nombre}: \$${subtotal.toStringAsFixed(2)}\n";
-      }
-    }
-
-    if (itemsPedido.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Agrega al menos un producto al pedido')),
-      );
-      return;
-    }
-
-    String numFormateado = DataStore.numeroPedido.toString().padLeft(2, '0');
-
-    Pedido nuevoPedido = Pedido(
-      numero: numFormateado,
-      cliente: clienteSeleccionado!,
-      items: itemsPedido,
-      fecha: DateTime.now(),
+    final db = await DatabaseHelper.instance.database;
+    final nuevoPedido = Pedido(
+      cliente: clienteSeleccionado!.nombre,
+      telefono: clienteSeleccionado!.telefono,
+      total: totalPedido,
+      detalle: detalleText,
+      fecha: DateTime.now().toString().substring(0, 10),
     );
 
-    DataStore.historialPedidos.insert(0, nuevoPedido);
+    await db.insert('pedidos', nuevoPedido.toMap());
 
-    final String mensaje = "Estimado/a ${clienteSeleccionado!.nombre},\n\n"
-        "📦 *Pedido #$numFormateado*\n"
-        "$detalleMsg\n"
-        "💰 *Total:* \$${nuevoPedido.total.toStringAsFixed(2)}";
-
-    final Uri url = Uri.parse("https://wa.me/${clienteSeleccionado!.telefono}?text=${Uri.encodeComponent(mensaje)}");
-
+    String mensaje = '¡Hola ${clienteSeleccionado!.nombre}!\n\nDetalle de tu pedido:\n$detalleText\nTotal: L ${totalPedido.toStringAsFixed(2)}';
+    final url = Uri.parse('https://wa.me/${clienteSeleccionado!.telefono}?text=${Uri.encodeComponent(mensaje)}');
+    
     if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-      setState(() {
-        DataStore.numeroPedido = DataStore.numeroPedido < 99 ? DataStore.numeroPedido + 1 : 1;
-        cantidades.clear();
-      });
-    } else {
       await launchUrl(url);
     }
+
+    setState(() {
+      carrito.clear();
+      clienteSeleccionado = null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (DataStore.clientes.isNotEmpty && !DataStore.clientes.contains(clienteSeleccionado)) {
-      clienteSeleccionado = DataStore.clientes.first;
-    }
-
-    List<Widget> itemsSeleccionadosWidgets = [];
-    for (var prod in DataStore.productos) {
-      int cant = cantidades[prod.id] ?? 0;
-      if (cant > 0) {
-        itemsSeleccionadosWidgets.add(
-          Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: ListTile(
-              title: Text(prod.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text("\$${prod.precio.toStringAsFixed(2)} c/u  |  Subtotal: \$${(cant * prod.precio).toStringAsFixed(2)}"),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                    onPressed: () => setState(() => cantidades[prod.id] = cant - 1),
+    return Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        children: [
+          OutlinedButton.icon(
+            icon: Icon(Icons.person_search),
+            label: Text(clienteSeleccionado == null ? 'Seleccionar Cliente' : 'Cliente: ${clienteSeleccionado!.nombre}'),
+            onPressed: _abrirBuscadorCliente,
+          ),
+          SizedBox(height: 10),
+          ElevatedButton.icon(
+            icon: Icon(Icons.add),
+            label: Text('+ Agregar Productos al Pedido'),
+            onPressed: _abrirCatalogoProductos,
+          ),
+          Divider(),
+          Expanded(
+            child: carrito.isEmpty
+                ? Center(child: Text('Ningún producto agregado aún.'))
+                : ListView(
+                    children: carrito.entries.map((entry) {
+                      return Card(
+                        child: ListTile(
+                          title: Text(entry.key.nombre),
+                          subtitle: Text('L ${entry.key.precio.toStringAsFixed(2)} c/u | Subtotal: L ${(entry.key.precio * entry.value).toStringAsFixed(2)}'),
+                          trailing: Text('Cant: ${entry.value}', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      );
+                    }).toList(),
                   ),
-                  Text("$cant", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  IconButton(
-                    icon: const Icon(Icons.add_circle_outline, color: Colors.green),
-                    onPressed: () => setState(() => cantidades[prod.id] = cant + 1),
-                  ),
-                ],
-              ),
+          ),
+          Container(
+            padding: EdgeInsets.all(12),
+            color: Colors.green.shade50,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('TOTAL:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text('L ${totalPedido.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green.shade900)),
+              ],
             ),
           ),
-        );
-      }
-    }
-
-    return Column(
-      children: [
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Cliente:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 5),
-              DataStore.clientes.isEmpty
-                  ? const Text('No hay clientes registrados', style: TextStyle(color: Colors.red))
-                  : DropdownButton<Cliente>(
-                      value: clienteSeleccionado,
-                      isExpanded: true,
-                      items: DataStore.clientes.map((c) {
-                        return DropdownMenuItem(
-                          value: c,
-                          child: Text("${c.nombre} (${c.telefono})"),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => clienteSeleccionado = val),
-                    ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[700],
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  onPressed: _abrirCatalogoProductos,
-                  icon: const Icon(Icons.list_alt, color: Colors.white),
-                  label: const Text(
-                    " + Agregar Productos al Pedido",
-                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: itemsSeleccionadosWidgets.isEmpty
-              ? const Center(
-                  child: Text(
-                    "Ningún producto agregado aún.\nPresiona '+ Agregar Productos al Pedido'.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 15),
-                  ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  children: itemsSeleccionadosWidgets,
-                ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 5,
-                offset: const Offset(0, -2),
-              )
-            ],
-          ),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green[300]!),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("Pedido #${DataStore.numeroPedido.toString().padLeft(2, '0')}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text(
-                      "TOTAL: \$${totalActual.toStringAsFixed(2)}",
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green[800]),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF25D366),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: _enviarWhatsApp,
-                  icon: const Icon(Icons.send, color: Colors.white),
-                  label: const Text(
-                    "Enviar Pedido por WhatsApp",
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+          SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              onPressed: (clienteSeleccionado != null && carrito.isNotEmpty) ? _enviarWhatsApp : null,
+              child: Text('Enviar Pedido por WhatsApp', style: TextStyle(color: Colors.white)),
+            ),
+          )
+        ],
+      ),
     );
   }
 }
 
-// ==========================================
-// PESTAÑA 2: HISTORIAL
-// ==========================================
-class PantallaHistorialPedidos extends StatefulWidget {
-  const PantallaHistorialPedidos({super.key});
+// --- VISTA 3 Y 7: HISTORIAL DE PEDIDOS Y REENVÍO ---
+class VistaHistorial extends StatefulWidget {
+  VistaHistorial({super.key});
 
   @override
-  State<PantallaHistorialPedidos> createState() => _PantallaHistorialPedidosState();
+  State<VistaHistorial> createState() => _VistaHistorialState();
 }
 
-class _PantallaHistorialPedidosState extends State<PantallaHistorialPedidos> {
-  void _editarPedidoModal(Pedido pedido) {
-    Cliente clienteTemp = pedido.cliente;
-    Map<String, int> cantidadesTemp = {};
+class _VistaHistorialState extends State<VistaHistorial> {
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: DatabaseHelper.instance.database.then((db) => db.query('pedidos', orderBy: 'id DESC')),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
+        final pedidos = snapshot.data!.map((p) => Pedido.fromMap(p)).toList();
 
-    for (var item in pedido.items) {
-      cantidadesTemp[item.producto.id] = item.cantidad;
-    }
+        if (pedidos.isEmpty) return Center(child: Text('No hay pedidos registrados.'));
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            double totalModal = 0;
-            for (var prod in DataStore.productos) {
-              int c = cantidadesTemp[prod.id] ?? 0;
-              totalModal += c * prod.precio;
-            }
-
-            return AlertDialog(
-              title: Text('Modificar Pedido #${pedido.numero}'),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Cambiar Cliente:', style: TextStyle(fontWeight: FontWeight.bold)),
-                      DropdownButton<Cliente>(
-                        value: DataStore.clientes.contains(clienteTemp) ? clienteTemp : (DataStore.clientes.isNotEmpty ? DataStore.clientes.first : null),
-                        isExpanded: true,
-                        items: DataStore.clientes.map((c) {
-                          return DropdownMenuItem(value: c, child: Text(c.nombre));
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) setModalState(() => clienteTemp = val);
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      const Text('Modificar Productos:', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ...DataStore.productos.map((prod) {
-                        int cant = cantidadesTemp[prod.id] ?? 0;
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(child: Text(prod.nombre, overflow: TextOverflow.ellipsis)),
-                            Row(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                                  onPressed: () {
-                                    if (cant > 0) setModalState(() => cantidadesTemp[prod.id] = cant - 1);
-                                  },
-                                ),
-                                Text('$cant'),
-                                IconButton(
-                                  icon: const Icon(Icons.add_circle_outline, color: Colors.green),
-                                  onPressed: () => setModalState(() => cantidadesTemp[prod.id] = cant + 1),
-                                ),
-                              ],
-                            )
-                          ],
-                        );
-                      }),
-                      const Divider(),
-                      Text('Nuevo Total: \$${totalModal.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green[800])),
-                    ],
-                  ),
-                ),
+        return ListView.builder(
+          itemCount: pedidos.length,
+          itemBuilder: (ctx, i) {
+            final ped = pedidos[i];
+            return Card(
+              margin: EdgeInsets.all(8),
+              child: ExpansionTile(
+                title: Text('Pedido #${ped.id} - ${ped.cliente}'),
+                subtitle: Text('Total: L ${ped.total.toStringAsFixed(2)} | Fecha: ${ped.fecha}'),
+                children: [
+                  Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Teléfono: ${ped.telefono}'),
+                        Text('Detalle:\n${ped.detalle}'),
+                        OutlinedButton.icon(
+                          icon: Icon(Icons.send),
+                          label: Text('Reenviar por WhatsApp'),
+                          onPressed: () async {
+                            String mensaje = '¡Hola ${ped.cliente}!\n\nRecordatorio de tu pedido:\n${ped.detalle}\nTotal: L ${ped.total.toStringAsFixed(2)}';
+                            final url = Uri.parse('https://wa.me/${ped.telefono}?text=${Uri.encodeComponent(mensaje)}');
+                            if (await canLaunchUrl(url)) await launchUrl(url);
+                          },
+                        )
+                      ],
+                    ),
+                  )
+                ],
               ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-                ElevatedButton(
-                  onPressed: () {
-                    List<ItemPedido> nuevosItems = [];
-                    for (var prod in DataStore.productos) {
-                      int c = cantidadesTemp[prod.id] ?? 0;
-                      if (c > 0) nuevosItems.add(ItemPedido(producto: prod, cantidad: c));
-                    }
-
-                    if (nuevosItems.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El pedido no puede quedar sin productos')));
-                      return;
-                    }
-
-                    setState(() {
-                      pedido.cliente = clienteTemp;
-                      pedido.items = nuevosItems;
-                    });
-
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Guardar Cambios'),
-                ),
-              ],
             );
           },
         );
       },
     );
   }
+}
 
-  void _reenviarWhatsApp(Pedido pedido) async {
-    String detalleMsg = "";
-    for (var item in pedido.items) {
-      detalleMsg += "• ${item.cantidad}x ${item.producto.nombre}: \$${item.subtotal.toStringAsFixed(2)}\n";
-    }
+// --- VISTA 5: GESTIÓN DE CLIENTES ---
+class VistaGestionClientes extends StatefulWidget {
+  VistaGestionClientes({super.key});
 
-    final String mensaje = "Estimado/a ${pedido.cliente.nombre},\n\n"
-        "📦 *Pedido #${pedido.numero} (Actualizado)*\n"
-        "$detalleMsg\n"
-        "💰 *Total:* \$${pedido.total.toStringAsFixed(2)}";
+  @override
+  State<VistaGestionClientes> createState() => _VistaGestionClientesState();
+}
 
-    final Uri url = Uri.parse("https://wa.me/${pedido.cliente.telefono}?text=${Uri.encodeComponent(mensaje)}");
+class _VistaGestionClientesState extends State<VistaGestionClientes> {
+  final _nombreCtrl = TextEditingController();
+  final _telCtrl = TextEditingController();
 
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      await launchUrl(url);
-    }
+  void _agregarCliente() async {
+    if (_nombreCtrl.text.isEmpty || _telCtrl.text.isEmpty) return;
+    final db = await DatabaseHelper.instance.database;
+    await db.insert('clientes', {'nombre': _nombreCtrl.text, 'telefono': _telCtrl.text});
+    _nombreCtrl.clear();
+    _telCtrl.clear();
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    if (DataStore.historialPedidos.isEmpty) {
-      return const Center(child: Text("No se han generado pedidos aún."));
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: DataStore.historialPedidos.length,
-      itemBuilder: (context, i) {
-        final ped = DataStore.historialPedidos[i];
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ExpansionTile(
-            title: Text("Pedido #${ped.numero} - ${ped.cliente.nombre}", style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text("Total: \$${ped.total.toStringAsFixed(2)}"),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _editarPedidoModal(ped)),
-                IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => setState(() => DataStore.historialPedidos.removeAt(i))),
-              ],
-            ),
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.all(8),
+          child: Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Teléfono: ${ped.cliente.telefono}"),
-                    const SizedBox(height: 6),
-                    const Text("Detalle:", style: TextStyle(fontWeight: FontWeight.bold)),
-                    ...ped.items.map((item) => Text("• ${item.cantidad}x ${item.producto.nombre} (\$${item.subtotal.toStringAsFixed(2)})")),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _reenviarWhatsApp(ped),
-                        icon: const Icon(Icons.send, color: Color(0xFF25D366)),
-                        label: const Text("Reenviar por WhatsApp", style: TextStyle(color: Color(0xFF25D366))),
-                      ),
-                    ),
-                  ],
+              Expanded(child: TextField(controller: _nombreCtrl, decoration: InputDecoration(labelText: 'Nombre'))),
+              SizedBox(width: 8),
+              Expanded(child: TextField(controller: _telCtrl, decoration: InputDecoration(labelText: 'Teléfono'))),
+              IconButton(icon: Icon(Icons.add_circle, color: Colors.green), onPressed: _agregarCliente)
+            ],
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: DatabaseHelper.instance.database.then((db) => db.query('clientes')),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
+              final clientes = snapshot.data!.map((c) => Cliente.fromMap(c)).toList();
+              return ListView.builder(
+                itemCount: clientes.length,
+                itemBuilder: (ctx, i) => ListTile(
+                  title: Text(clientes[i].nombre),
+                  subtitle: Text(clientes[i].telefono),
+                  trailing: IconButton(
+                    icon: Icon(Icons.delete, color: Colors.red),
+                    onPressed: () async {
+                      final db = await DatabaseHelper.instance.database;
+                      await db.delete('clientes', where: 'id = ?', whereArgs: [clientes[i].id]);
+                      setState(() {});
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        )
+      ],
+    );
+  }
+}
+
+// --- VISTA 6: GESTIÓN DE PRODUCTOS ---
+class VistaGestionProductos extends StatefulWidget {
+  VistaGestionProductos({super.key});
+
+  @override
+  State<VistaGestionProductos> createState() => _VistaGestionProductosState();
+}
+
+class _VistaGestionProductosState extends State<VistaGestionProductos> {
+  final _nombreCtrl = TextEditingController();
+  final _precioCtrl = TextEditingController();
+
+  void _agregarProducto() async {
+    if (_nombreCtrl.text.isEmpty || _precioCtrl.text.isEmpty) return;
+    final db = await DatabaseHelper.instance.database;
+    await db.insert('productos', {
+      'nombre': _nombreCtrl.text,
+      'precio': double.tryParse(_precioCtrl.text) ?? 0.0,
+    });
+    _nombreCtrl.clear();
+    _precioCtrl.clear();
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.all(8),
+          child: Row(
+            children: [
+              Expanded(child: TextField(controller: _nombreCtrl, decoration: InputDecoration(labelText: 'Producto'))),
+              SizedBox(width: 8),
+              Expanded(child: TextField(controller: _precioCtrl, decoration: InputDecoration(labelText: 'Precio (L)'), keyboardType: TextInputType.number)),
+              IconButton(icon: Icon(Icons.add_circle, color: Colors.green), onPressed: _agregarProducto)
+            ],
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: DatabaseHelper.instance.database.then((db) => db.query('productos')),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
+              final productos = snapshot.data!.map((p) => Producto.fromMap(p)).toList();
+              return ListView.builder(
+                itemCount: productos.length,
+                itemBuilder: (ctx, i) => ListTile(
+                  title: Text(productos[i].nombre),
+                  subtitle: Text('Precio: L ${productos[i].precio.toStringAsFixed(2)}'),
+                  trailing: IconButton(
+                    icon: Icon(Icons.delete, color: Colors.red),
+                    onPressed: () async {
+                      final db = await DatabaseHelper.instance.database;
+                      await db.delete('productos', where: 'id = ?', whereArgs: [productos[i].id]);
+                      setState(() {});
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        )
+      ],
+    );
+  }
+}
+
+// --- VISTA ADICIONAL: RESUMEN Y REPORTES DE VENTAS ---
+class VistaResumenes extends StatelessWidget {
+  VistaResumenes({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: DatabaseHelper.instance.database.then((db) => db.query('pedidos')),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
+        final pedidos = snapshot.data!.map((p) => Pedido.fromMap(p)).toList();
+
+        double totalVentas = pedidos.fold(0, (sum, p) => sum + p.total);
+        Map<String, double> ventasPorCliente = {};
+
+        for (var p in pedidos) {
+          ventasPorCliente[p.cliente] = (ventasPorCliente[p.cliente] ?? 0) + p.total;
+        }
+
+        return Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Card(
+                color: Colors.green.shade100,
+                child: ListTile(
+                  title: Text('Ventas Totales Registradas', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('L ${totalVentas.toStringAsFixed(2)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green.shade900)),
+                ),
+              ),
+              SizedBox(height: 15),
+              Text('Resumen de Ventas por Cliente:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Divider(),
+              Expanded(
+                child: ListView(
+                  children: ventasPorCliente.entries.map((e) {
+                    return ListTile(
+                      leading: Icon(Icons.person),
+                      title: Text(e.key),
+                      trailing: Text('L ${e.value.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold)),
+                    );
+                  }).toList(),
                 ),
               )
             ],
           ),
         );
       },
-    );
-  }
-}
-
-// ==========================================
-// PESTAÑA 3: CLIENTES
-// ==========================================
-class PantallaClientes extends StatefulWidget {
-  const PantallaClientes({super.key});
-
-  @override
-  State<PantallaClientes> createState() => _PantallaClientesState();
-}
-
-class _PantallaClientesState extends State<PantallaClientes> {
-  final nombreC = TextEditingController();
-  final telC = TextEditingController();
-  final masivoC = TextEditingController();
-
-  void _mostrarModalAgregarCliente() {
-    nombreC.clear();
-    telC.clear();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Agregar Nuevo Cliente'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nombreC, decoration: const InputDecoration(labelText: 'Nombre Completo')),
-            TextField(controller: telC, decoration: const InputDecoration(labelText: 'Teléfono')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () {
-              if (nombreC.text.isNotEmpty && telC.text.isNotEmpty) {
-                setState(() {
-                  DataStore.clientes.add(Cliente(id: DateTime.now().toString(), nombre: nombreC.text, telefono: telC.text));
-                });
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Guardar'),
-          )
-        ],
-      ),
-    );
-  }
-
-  void _mostrarModalMasivo() {
-    masivoC.clear();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cargar Lista Masiva de Clientes'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Pega varios contactos con el formato:\nNombre, Teléfono (uno por línea)',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: masivoC,
-              maxLines: 6,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: 'María López, 50499887766\nCarlos Ruiz, 50488776655',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () {
-              if (masivoC.text.isNotEmpty) {
-                List<String> lineas = masivoC.text.split('\n');
-                int agregados = 0;
-                setState(() {
-                  for (var linea in lineas) {
-                    if (linea.contains(',')) {
-                      var partes = linea.split(',');
-                      String n = partes[0].trim();
-                      String t = partes[1].trim().replaceAll(RegExp(r'[^\d+]'), '');
-                      if (n.isNotEmpty && t.isNotEmpty) {
-                        DataStore.clientes.add(Cliente(id: DateTime.now().microsecondsSinceEpoch.toString(), nombre: n, telefono: t));
-                        agregados++;
-                      }
-                    }
-                  }
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Se agregaron $agregados clientes.')));
-              }
-            },
-            child: const Text('Cargar Todos'),
-          )
-        ],
-      ),
-    );
-  }
-
-  void _editarClienteModal(Cliente cliente) {
-    final editNombre = TextEditingController(text: cliente.nombre);
-    final editTel = TextEditingController(text: cliente.telefono);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Modificar Cliente'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: editNombre, decoration: const InputDecoration(labelText: 'Nombre')),
-            TextField(controller: editTel, decoration: const InputDecoration(labelText: 'Teléfono')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                cliente.nombre = editNombre.text;
-                cliente.telefono = editTel.text;
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Guardar Cambios'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            color: Colors.red[50],
-            child: ListTile(
-              title: const Text("Contador Semanal", style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text("Siguiente Pedido: #${DataStore.numeroPedido.toString().padLeft(2, '0')}"),
-              trailing: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                onPressed: () => setState(() => DataStore.numeroPedido = 1),
-                child: const Text("Reiniciar a 01", style: TextStyle(color: Colors.white)),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
-              onPressed: _mostrarModalMasivo,
-              icon: const Icon(Icons.paste, color: Colors.blue),
-              label: const Text("Cargar Lista Masiva de Clientes", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-            ),
-          ),
-          const SizedBox(height: 15),
-
-          if (DataStore.clientes.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: Text("No hay clientes guardados.")),
-            )
-          else
-            ...DataStore.clientes.map((c) => Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.person, color: Colors.green),
-                    title: Text(c.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text("Tel: ${c.telefono}"),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                          _editarClienteModal(c);
-                        } else if (value == 'delete') {
-                          setState(() => DataStore.clientes.remove(c));
-                        }
-                      },
-                      itemBuilder: (BuildContext context) => [
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, color: Colors.blue, size: 20),
-                              SizedBox(width: 8),
-                              Text('Editar'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, color: Colors.red, size: 20),
-                              SizedBox(width: 8),
-                              Text('Eliminar'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: Colors.green[700],
-        onPressed: _mostrarModalAgregarCliente,
-        icon: const Icon(Icons.person_add, color: Colors.white),
-        label: const Text("Nuevo Cliente", style: TextStyle(color: Colors.white)),
-      ),
-    );
-  }
-}
-
-// ==========================================
-// PESTAÑA 4: PRODUCTOS
-// ==========================================
-class PantallaProductos extends StatefulWidget {
-  const PantallaProductos({super.key});
-
-  @override
-  State<PantallaProductos> createState() => _PantallaProductosState();
-}
-
-class _PantallaProductosState extends State<PantallaProductos> {
-  final prodC = TextEditingController();
-  final precioC = TextEditingController();
-
-  void _mostrarModalAgregarProducto() {
-    prodC.clear();
-    precioC.clear();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Agregar Nuevo Producto'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: prodC, decoration: const InputDecoration(labelText: 'Nombre del Producto')),
-            TextField(controller: precioC, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Precio (\$)')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () {
-              if (prodC.text.isNotEmpty && precioC.text.isNotEmpty) {
-                setState(() {
-                  DataStore.productos.add(Producto(
-                    id: DateTime.now().toString(),
-                    nombre: prodC.text,
-                    precio: double.tryParse(precioC.text) ?? 0.0,
-                  ));
-                });
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Guardar'),
-          )
-        ],
-      ),
-    );
-  }
-
-  void _editarProductoModal(Producto producto) {
-    final editNombre = TextEditingController(text: producto.nombre);
-    final editPrecio = TextEditingController(text: producto.precio.toString());
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Modificar Producto'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: editNombre, decoration: const InputDecoration(labelText: 'Nombre')),
-            TextField(controller: editPrecio, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Precio (\$)')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                producto.nombre = editNombre.text;
-                producto.precio = double.tryParse(editPrecio.text) ?? producto.precio;
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Guardar Cambios'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (DataStore.productos.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: Text("No hay productos guardados.")),
-            )
-          else
-            ...DataStore.productos.map((p) => Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.shopping_bag, color: Colors.green),
-                    title: Text(p.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text("Precio: \$${p.precio.toStringAsFixed(2)}"),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                          _editarProductoModal(p);
-                        } else if (value == 'delete') {
-                          setState(() => DataStore.productos.remove(p));
-                        }
-                      },
-                      itemBuilder: (BuildContext context) => [
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, color: Colors.blue, size: 20),
-                              SizedBox(width: 8),
-                              Text('Editar'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, color: Colors.red, size: 20),
-                              SizedBox(width: 8),
-                              Text('Eliminar'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: Colors.green[700],
-        onPressed: _mostrarModalAgregarProducto,
-        icon: const Icon(Icons.add_shopping_cart, color: Colors.white),
-        label: const Text("Nuevo Producto", style: TextStyle(color: Colors.white)),
-      ),
     );
   }
 }
