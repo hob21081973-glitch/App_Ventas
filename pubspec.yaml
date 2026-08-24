@@ -9,11 +9,4 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  printing: ^5.13.0
-
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-
-flutter:
-  uses-material-design: true
+  url_launcher: ^6.2.5
