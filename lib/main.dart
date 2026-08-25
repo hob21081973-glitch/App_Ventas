@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import 'package:http/http.dart' as http;
+
+// === COLOCA AQUÍ TUS ENLACES PUBLICADOS EN CSV ===
+const String urlClientesCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQGrudWaUvLeoYiWVqTA_yUMfVnCHdSSrI-NxScUAGmJhXtasntJiGz4QAZnK2ioKgPFqP6NoGcyUjs/pub?gid=0&single=true&output=csv';
+const String urlProductosCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQGrudWaUvLeoYiWVqTA_yUMfVnCHdSSrI-NxScUAGmJhXtasntJiGz4QAZnK2ioKgPFqP6NoGcyUjs/pub?gid=2053635523&single=true&output=csv';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -670,6 +675,53 @@ class _VistaGestionClientesState extends State<VistaGestionClientes> {
   final _nombreCtrl = TextEditingController();
   final _telCtrl = TextEditingController();
   String _busqueda = '';
+  bool _cargando = false;
+
+  Future<void> _sincronizarClientes() async {
+    if (urlClientesCSV.contains('AQUI_TU_ENLACE')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Configura el enlace CSV de clientes en el código.')),
+      );
+      return;
+    }
+
+    setState(() => _cargando = true);
+    try {
+      final res = await http.get(Uri.parse(urlClientesCSV));
+      if (res.statusCode == 200) {
+        final lineas = res.body.split('\n');
+        final db = await DatabaseHelper.instance.database;
+        int contador = 0;
+
+        for (int i = 1; i < lineas.length; i++) {
+          final campos = lineas[i].split(',');
+          if (campos.length >= 2) {
+            final nombre = campos[0].trim().replaceAll('"', '');
+            final telefono = campos[1].trim().replaceAll('"', '');
+
+            if (nombre.isNotEmpty) {
+              await db.insert('clientes', {'nombre': nombre, 'telefono': telefono});
+              contador++;
+            }
+          }
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('¡$contador clientes importados con éxito!')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al importar: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
 
   void _guardarOActualizarCliente({Cliente? clienteExistente}) async {
     final nombre = _nombreCtrl.text.trim();
@@ -777,13 +829,25 @@ class _VistaGestionClientesState extends State<VistaGestionClientes> {
         children: [
           Padding(
             padding: const EdgeInsets.all(12),
-            child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'Buscar cliente...',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (val) => setState(() => _busqueda = val),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar cliente...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) => setState(() => _busqueda = val),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Cargar desde Excel/Google Sheets',
+                  icon: _cargando ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.cloud_download, color: Colors.blue),
+                  onPressed: _cargando ? null : _sincronizarClientes,
+                )
+              ],
             ),
           ),
           Expanded(
@@ -861,6 +925,54 @@ class _VistaGestionProductosState extends State<VistaGestionProductos> {
   final _nombreCtrl = TextEditingController();
   final _precioCtrl = TextEditingController();
   String _busqueda = '';
+  bool _cargando = false;
+
+  Future<void> _sincronizarProductos() async {
+    if (urlProductosCSV.contains('AQUI_TU_ENLACE')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Configura el enlace CSV de productos en el código.')),
+      );
+      return;
+    }
+
+    setState(() => _cargando = true);
+    try {
+      final res = await http.get(Uri.parse(urlProductosCSV));
+      if (res.statusCode == 200) {
+        final lineas = res.body.split('\n');
+        final db = await DatabaseHelper.instance.database;
+        int contador = 0;
+
+        for (int i = 1; i < lineas.length; i++) {
+          final campos = lineas[i].split(',');
+          if (campos.length >= 2) {
+            final nombre = campos[0].trim().replaceAll('"', '');
+            final precioText = campos[1].trim().replaceAll('"', '');
+            final precio = double.tryParse(precioText) ?? 0.0;
+
+            if (nombre.isNotEmpty && precio > 0) {
+              await db.insert('productos', {'nombre': nombre, 'precio': precio});
+              contador++;
+            }
+          }
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('¡$contador productos importados con éxito!')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al importar: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
 
   void _guardarOActualizarProducto({Producto? productoExistente}) async {
     final nombre = _nombreCtrl.text.trim();
@@ -968,13 +1080,25 @@ class _VistaGestionProductosState extends State<VistaGestionProductos> {
         children: [
           Padding(
             padding: const EdgeInsets.all(12),
-            child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'Buscar producto...',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (val) => setState(() => _busqueda = val),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar producto...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) => setState(() => _busqueda = val),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Cargar desde Excel/Google Sheets',
+                  icon: _cargando ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.cloud_download, color: Colors.blue),
+                  onPressed: _cargando ? null : _sincronizarProductos,
+                )
+              ],
             ),
           ),
           Expanded(
