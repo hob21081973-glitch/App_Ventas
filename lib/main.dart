@@ -4,9 +4,9 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:http/http.dart' as http;
 
-// === COLOCA AQUÍ TUS ENLACES PUBLICADOS EN CSV ===
-const String urlClientesCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQGrudWaUvLeoYiWVqTA_yUMfVnCHdSSrI-NxScUAGmJhXtasntJiGz4QAZnK2ioKgPFqP6NoGcyUjs/pub?gid=0&single=true&output=csv';
-const String urlProductosCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQGrudWaUvLeoYiWVqTA_yUMfVnCHdSSrI-NxScUAGmJhXtasntJiGz4QAZnK2ioKgPFqP6NoGcyUjs/pub?gid=2053635523&single=true&output=csv';
+// === ENLACES PUBLICADOS EN CSV DE GOOGLE SHEETS ===
+const String urlClientesCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTq9y12d8T-aYwM-x4N_7sXbFk5v6yZ9Z0p-Y1X2-3_4567890/pub?gid=0&single=true&output=csv';
+const String urlProductosCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTq9y12d8T-aYwM-x4N_7sXbFk5v6yZ9Z0p-Y1X2-3_4567890/pub?gid=123456789&single=true&output=csv';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -246,7 +246,7 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> with AutomaticKeepA
             final filtrados = clientes.where((c) => c.nombre.toLowerCase().contains(filtro.toLowerCase())).toList();
             return Container(
               padding: const EdgeInsets.all(16),
-              height: MediaQuery.of(context).size.height * 0.7,
+              height: MediaQuery.of(context).size.height * 0.85,
               child: Column(
                 children: [
                   TextField(
@@ -288,62 +288,66 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> with AutomaticKeepA
 
     if (!mounted) return;
 
-    showDialog(
+    // Cambiado a BottomSheet para ocupar todo el ancho de la pantalla igual que Clientes
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) {
         String filtro = '';
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (context, setModalState) {
             final filtrados = productos.where((p) => p.nombre.toLowerCase().contains(filtro.toLowerCase())).toList();
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              title: const Text('Catálogo de Productos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              content: SizedBox(
-                width: MediaQuery.of(context).size.width * 0.9,
-                height: 400,
-                child: Column(
-                  children: [
-                    TextField(
-                      decoration: InputDecoration(
-                        labelText: 'Buscar Producto',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onChanged: (val) => setDialogState(() => filtro = val),
+            return Container(
+              padding: const EdgeInsets.all(16),
+              height: MediaQuery.of(context).size.height * 0.85,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Catálogo de Productos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    decoration: InputDecoration(
+                      labelText: 'Buscar Producto',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: filtrados.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (ctx, i) {
-                          final prod = filtrados[i];
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                            title: Text(prod.nombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                            subtitle: Text('L ${prod.precio.toStringAsFixed(2)} c/u', style: const TextStyle(fontSize: 12, color: Colors.green)),
-                            trailing: const Icon(Icons.add_circle, color: Colors.indigo, size: 28),
-                            onTap: () {
-                              setState(() {
-                                int actual = carrito[prod] ?? 0;
-                                carrito[prod] = actual + 1;
-                              });
-                              Navigator.pop(ctx);
-                            },
-                          );
-                        },
-                      ),
+                    onChanged: (val) => setModalState(() => filtro = val),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: filtrados.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (ctx, i) {
+                        final prod = filtrados[i];
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          title: Text(prod.nombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          subtitle: Text('L ${prod.precio.toStringAsFixed(2)} c/u', style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
+                          trailing: const Icon(Icons.add_circle, color: Colors.indigo, size: 28),
+                          onTap: () {
+                            setState(() {
+                              int actual = carrito[prod] ?? 0;
+                              carrito[prod] = actual + 1;
+                            });
+                            Navigator.pop(ctx);
+                          },
+                        );
+                      },
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              actions: [
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cerrar', style: TextStyle(color: Colors.white)),
-                ),
-              ],
             );
           },
         );
@@ -570,8 +574,10 @@ class _VistaHistorialState extends State<VistaHistorial> {
 
     if (!mounted) return;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) {
         String filtro = '';
         return StatefulBuilder(
@@ -579,111 +585,117 @@ class _VistaHistorialState extends State<VistaHistorial> {
             double nuevoTotal = carritoEditado.entries.fold(0, (sum, entry) => sum + (entry.key.precio * entry.value));
             final filtrados = productosBD.where((p) => p.nombre.toLowerCase().contains(filtro.toLowerCase())).toList();
 
-            return AlertDialog(
-              title: Text('Modificar Pedido #${pedido.id}', style: const TextStyle(fontSize: 16)),
-              content: SizedBox(
-                width: MediaQuery.of(context).size.width * 0.9,
-                height: 400,
-                child: Column(
-                  children: [
-                    TextField(
-                      decoration: const InputDecoration(labelText: 'Buscar producto...', prefixIcon: Icon(Icons.search)),
-                      onChanged: (val) => setDialogState(() => filtro = val),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: filtrados.length,
-                        itemBuilder: (ctx, i) {
-                          final prod = filtrados[i];
-                          final cant = carritoEditado[prod] ?? 0;
-                          return Container(
-                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black12))),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(prod.nombre, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
-                                      Text('L ${prod.precio.toStringAsFixed(2)} c/u', style: const TextStyle(fontSize: 11)),
-                                    ],
-                                  ),
-                                ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
+            return Container(
+              padding: const EdgeInsets.all(16),
+              height: MediaQuery.of(context).size.height * 0.85,
+              child: Column(
+                children: [
+                  Text('Modificar Pedido #${pedido.id}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    decoration: const InputDecoration(labelText: 'Buscar producto...', prefixIcon: Icon(Icons.search)),
+                    onChanged: (val) => setDialogState(() => filtro = val),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filtrados.length,
+                      itemBuilder: (ctx, i) {
+                        final prod = filtrados[i];
+                        final cant = carritoEditado[prod] ?? 0;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                          decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black12))),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    IconButton(
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.all(4),
-                                      icon: const Icon(Icons.remove_circle_outline, size: 20),
-                                      onPressed: cant > 0
-                                          ? () {
-                                              setDialogState(() {
-                                                if (cant == 1) {
-                                                  carritoEditado.remove(prod);
-                                                } else {
-                                                  carritoEditado[prod] = cant - 1;
-                                                }
-                                              });
-                                            }
-                                          : null,
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                                      child: Text('$cant', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    ),
-                                    IconButton(
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.all(4),
-                                      icon: const Icon(Icons.add_circle_outline, size: 20),
-                                      onPressed: () {
-                                        setDialogState(() {
-                                          carritoEditado[prod] = cant + 1;
-                                        });
-                                      },
-                                    ),
+                                    Text(prod.nombre, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                    Text('L ${prod.precio.toStringAsFixed(2)} c/u', style: const TextStyle(fontSize: 11)),
                                   ],
                                 ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Nuevo Total: L ${nuevoTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.green)),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
-                  onPressed: () async {
-                    String nuevoDetalle = '';
-                    carritoEditado.forEach((prod, cant) {
-                      nuevoDetalle += '• ${cant}x ${prod.nombre} (L ${(prod.precio * cant).toStringAsFixed(2)})\n';
-                    });
-
-                    final dbUpdate = await DatabaseHelper.instance.database;
-                    await dbUpdate.update(
-                      'pedidos',
-                      {
-                        'total': nuevoTotal,
-                        'detalle': nuevoDetalle,
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.all(4),
+                                    icon: const Icon(Icons.remove_circle_outline, size: 20),
+                                    onPressed: cant > 0
+                                        ? () {
+                                            setDialogState(() {
+                                              if (cant == 1) {
+                                                carritoEditado.remove(prod);
+                                              } else {
+                                                carritoEditado[prod] = cant - 1;
+                                              }
+                                            });
+                                          }
+                                        : null,
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: Text('$cant', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                  ),
+                                  IconButton(
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.all(4),
+                                    icon: const Icon(Icons.add_circle_outline, size: 20),
+                                    onPressed: () {
+                                      setDialogState(() {
+                                        carritoEditado[prod] = cant + 1;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
                       },
-                      where: 'id = ?',
-                      whereArgs: [pedido.id],
-                    );
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Nuevo Total: L ${nuevoTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.green)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+                      ),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
+                          onPressed: () async {
+                            String nuevoDetalle = '';
+                            carritoEditado.forEach((prod, cant) {
+                              nuevoDetalle += '• ${cant}x ${prod.nombre} (L ${(prod.precio * cant).toStringAsFixed(2)})\n';
+                            });
 
-                    if (mounted) Navigator.pop(ctx);
-                    setState(() {});
-                  },
-                  child: const Text('Guardar Cambios', style: TextStyle(color: Colors.white)),
-                ),
-              ],
+                            final dbUpdate = await DatabaseHelper.instance.database;
+                            await dbUpdate.update(
+                              'pedidos',
+                              {
+                                'total': nuevoTotal,
+                                'detalle': nuevoDetalle,
+                              },
+                              where: 'id = ?',
+                              whereArgs: [pedido.id],
+                            );
+
+                            if (mounted) Navigator.pop(ctx);
+                            setState(() {});
+                          },
+                          child: const Text('Guardar Cambios', style: TextStyle(color: Colors.white)),
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
             );
           },
         );
@@ -780,13 +792,6 @@ class _VistaGestionClientesState extends State<VistaGestionClientes> {
   bool _cargando = false;
 
   Future<void> _sincronizarClientes() async {
-    if (urlClientesCSV.contains('AQUI_TU_ENLACE')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Configura el enlace CSV de clientes en el código.')),
-      );
-      return;
-    }
-
     setState(() => _cargando = true);
     try {
       final res = await http.get(Uri.parse(urlClientesCSV));
@@ -1018,13 +1023,6 @@ class _VistaGestionProductosState extends State<VistaGestionProductos> {
   bool _cargando = false;
 
   Future<void> _sincronizarProductos() async {
-    if (urlProductosCSV.contains('AQUI_TU_ENLACE')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Configura el enlace CSV de productos en el código.')),
-      );
-      return;
-    }
-
     setState(() => _cargando = true);
     try {
       final res = await http.get(Uri.parse(urlProductosCSV));
