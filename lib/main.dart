@@ -5,8 +5,8 @@ import 'package:path/path.dart' as p;
 import 'package:http/http.dart' as http;
 
 // === ENLACES PUBLICADOS EN CSV DE GOOGLE SHEETS ===
-const String urlClientesCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTq9y12d8T-aYwM-x4N_7sXbFk5v6yZ9Z0p-Y1X2-3_4567890/pub?gid=0&single=true&output=csv';
-const String urlProductosCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTq9y12d8T-aYwM-x4N_7sXbFk5v6yZ9Z0p-Y1X2-3_4567890/pub?gid=123456789&single=true&output=csv';
+const String urlClientesCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQGrudWaUvLeoYiWVqTA_yUMfVnCHdSSrI-NxScUAGmJhXtasntJiGz4QAZnK2ioKgPFqP6NoGcyUjs/pub?gid=0&single=true&output=csv';
+const String urlProductosCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQGrudWaUvLeoYiWVqTA_yUMfVnCHdSSrI-NxScUAGmJhXtasntJiGz4QAZnK2ioKgPFqP6NoGcyUjs/pub?gid=2053635523&single=true&output=csv';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
