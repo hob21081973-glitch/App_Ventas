@@ -336,7 +336,7 @@ class _VistaNuevoPedidoState extends State<VistaNuevoPedido> with AutomaticKeepA
                           subtitle: Text('L ${prod.precio.toStringAsFixed(2)} c/u', style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
                           trailing: const Icon(Icons.add_circle, color: Colors.indigo, size: 28),
                           onTap: () {
-                            setState(() {
+                            setState(() => productoSeleccionado = filtrados[i]);
                               int actual = carrito[prod] ?? 0;
                               carrito[prod] = actual + 1;
                             });
